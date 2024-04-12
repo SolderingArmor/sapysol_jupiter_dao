@@ -50,7 +50,7 @@ batcher = SapysolJupiterDaoBatcher(connection      = connection,
                                    voteSide        = voteSide,
                                    numThreads      = 10)
 
-# Start claiming
+# Start voting
 batcher.Start()
 ```
 
