@@ -9,7 +9,7 @@ WARNING! only casting initial vote is implemented! Changing vote, depositing JUP
 # Installation
 
 ```sh
-pip install sapysol
+pip install sapysol-jupiter-dao
 ```
 
 Note: Requires Python >= 3.10.

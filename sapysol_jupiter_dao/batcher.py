@@ -80,7 +80,7 @@ class SapysolJupiterDaoBatcher:
 
             castVote: Instruction = CastVoteIx(connection      = self.CONNECTION,
                                                proposalAddress = self.PROPOSAL_ADDRESS,
-                                               voter           = _voter,
+                                               voterAddress    = _voter,
                                                voteSide        = self.VOTE_SIDE)
 
             tx: SapysolTx = SapysolTx(connection=self.CONNECTION, payer=_voter)
