@@ -29,6 +29,7 @@ class SapysolJupiterDaoBatcher:
                  proposalAddress:    SapysolPubkey,
                  votersList:         List[SapysolKeypair],
                  voteSide:           int,
+                 voteOverride:       bool = False,
                  connectionOverride: List[Union[str, Client]] = None,
                  txParams:           SapysolTxParams = SapysolTxParams(),
                  computePriceTx:     int = 1,
@@ -38,6 +39,7 @@ class SapysolJupiterDaoBatcher:
         self.PROPOSAL_ADDRESS: Pubkey                   = MakePubkey(proposalAddress)
         self.VOTERS_LIST:      List[Keypair]            = [MakeKeypair(k) for k in votersList]
         self.VOTE_SIDE:        int                      = voteSide
+        self.VOTE_OVERRIDE:    bool                     = voteOverride
         self.TX_PARAMS:        SapysolTxParams          = txParams
         self.COMPUTE_PRICE_TX: int                      = computePriceTx
         self.CONN_OVERRIDE:    List[Union[str, Client]] = connectionOverride
@@ -58,9 +60,13 @@ class SapysolJupiterDaoBatcher:
                 voteSide, votePower = CheckVoteSide(connection      = self.CONNECTION,
                                                     proposalAddress = self.PROPOSAL_ADDRESS,
                                                     voterAddress    = _voterAddress)
-                print(f"Voter: {_voter.pubkey()} already voted (side: {voteSide}, power: {votePower/JUP_DELIMITER}), skipping...")
-                # TODO: check vote for who and tell
-                return
+
+                # Recast a vote only if previous one is for the other candidate
+                if self.VOTE_OVERRIDE and self.VOTE_SIDE != voteSide:
+                    print(f"Voter: {str(_voter.pubkey()):>44} already voted (side: {voteSide:>2}, power: {votePower/JUP_DELIMITER}), but voteOverride = True...")
+                else:
+                    print(f"Voter: {str(_voter.pubkey()):>44} already voted (side: {voteSide:>2}, power: {votePower/JUP_DELIMITER}), skipping...")
+                    return
 
             proposal: Proposal = Proposal.fetch(conn=self.CONNECTION, address=self.PROPOSAL_ADDRESS )
             governor: Governor = Governor.fetch(conn=self.CONNECTION, address=proposal.governor)
@@ -69,10 +75,10 @@ class SapysolJupiterDaoBatcher:
                                                    lockerAddress = governor.locker,
                                                    voterAddress  = _voterAddress)
             if not escrowExists:
-                print(f"Voter: {_voter.pubkey()} no escrow, can't vote, skipping...")
+                print(f"Voter: {str(_voter.pubkey()):>44} no escrow, can't vote, skipping...")
                 return
 
-            print(f"Voter: {_voter.pubkey()} - voting...")
+            print(f"Voter: {str(_voter.pubkey()):>44} - voting...")
 
             newVote: Instruction = NewVoteIx(connection      = self.CONNECTION, 
                                              proposalAddress = self.PROPOSAL_ADDRESS, 
@@ -83,13 +89,16 @@ class SapysolJupiterDaoBatcher:
                                                voterAddress    = _voter,
                                                voteSide        = self.VOTE_SIDE)
 
+            ixList: List[Instruction] = []
+            ixList.append(ComputeBudgetIx())
+            ixList.append(ComputePriceIx(self.COMPUTE_PRICE_TX))
+            if not voteExists:
+                ixList.append(newVote)
+            ixList.append(castVote)
+
+
             tx: SapysolTx = SapysolTx(connection=self.CONNECTION, payer=_voter)
-            tx.FromInstructionsLegacy(instructions=[
-                ComputeBudgetIx(),
-                ComputePriceIx(self.COMPUTE_PRICE_TX),
-                newVote,
-                castVote,
-            ])
+            tx.FromInstructionsLegacy(instructions=ixList)
             result: SapysolTxStatus = tx.Sign([_voter]).SendAndWait(connectionOverride=self.CONN_OVERRIDE)
             if result == SapysolTxStatus.SUCCESS:
                 break

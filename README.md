@@ -56,6 +56,10 @@ batcher.Start()
 
 TODO
 
+# Changelog
+
+v.0.2.0 - Add `voteOverride` param to `SapysolJupiterDaoBatcher` which allows to change existing votes.
+
 # Contributing
 
 TODO
